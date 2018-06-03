@@ -71,7 +71,7 @@ func HandleConn(conn net.Conn) {
 func InputData(conn net.Conn) {
 	var address string
 
-	io.WriteString(conn, "Input the token balance for this account")
+	io.WriteString(conn, "Input the token balance for this account: ")
 	scanBalance := bufio.NewScanner(conn)
 	for scanBalance.Scan() {
 		balance, err := strconv.Atoi(scanBalance.Text())
@@ -86,7 +86,7 @@ func InputData(conn net.Conn) {
 		break
 	}
 
-	io.WriteString(conn, "Input the new data")
+	io.WriteString(conn, "Input the new data: ")
 	scanner := bufio.NewScanner(conn)
 
 	go func() {
@@ -100,10 +100,9 @@ func InputData(conn net.Conn) {
 			}
 			models.InputMsgChan <- msg
 			log.Println("Pushed the msg to inputMsgChan")
-			io.WriteString(conn, "Input MOAAR data")
+			io.WriteString(conn, "Input MOAAR data: ")
 		}
 	}()
-
 }
 
 func HandlePOSInputData() {

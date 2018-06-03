@@ -12,6 +12,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"net"
 	"github.com/mohanarpit/yolochain/blockchain"
+	"flag"
 )
 
 func run() error {
@@ -100,7 +101,6 @@ func posMain() {
 		}
 	}()
 
-
 	for {
 		conn, err := server.Accept()
 		if err != nil {
@@ -117,7 +117,17 @@ func main() {
 		log.Fatal(err)
 	}
 
-	//standaloneMain()
-	//networkMain()
-	posMain()
+	var mode = flag.String("mode", "pos", "The mode in which you want to run the blockchain. Available modes are standalone/network/pos. Default is pos.")
+	flag.Parse()
+	log.Println("Going to run the Yolochain in mode: ", *mode)
+	switch *mode {
+	case "pos":
+		posMain()
+	case "standalone":
+		standaloneMain()
+	case "network":
+		networkMain()
+	default:
+		break
+	}
 }
