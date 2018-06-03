@@ -11,7 +11,7 @@ The tutorial I'm following here is:
 
 TODOs:
 - [ ] Clustered environment. Currently only 1 master node is capable of mining the nodes and orchestrating the winners for POS.
-- [ ] REST API to read the blockchain given a Hash.
+- [x] REST API to read the blockchain given a Hash.
 - [ ] REST API to write to the blockchain.
 - [ ] Add context to the function calls once the blockchain is clustered
 

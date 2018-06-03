@@ -12,7 +12,7 @@ type Block struct {
 }
 
 type Message struct {
-	Data string
+	Data      string
 	Validator string
 }
 
@@ -32,4 +32,3 @@ var Mutex = &sync.Mutex{}
 
 // validators keeps track of open validators and balances in POS blockchain
 var Validators = make(map[string]int)
-

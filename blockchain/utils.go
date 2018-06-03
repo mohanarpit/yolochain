@@ -7,6 +7,7 @@ import (
 	"time"
 	"math/rand"
 	"log"
+	"github.com/davecgh/go-spew/spew"
 )
 
 func CalculateStringHash(s string) string {
@@ -48,6 +49,14 @@ func ReplaceChains(newBlocks []models.Block) {
 	if (len(newBlocks)) > len(models.Blockchain) {
 		models.Blockchain = newBlocks
 	}
+}
+
+func BootstrapBlockchain() models.Block {
+	t := time.Now()
+	genesisBlock := models.Block{0, t.String(), []byte(string(0)), "", "", ""}
+	spew.Dump(genesisBlock)
+	models.Blockchain = append(models.Blockchain, genesisBlock)
+	return genesisBlock
 }
 
 func HandleCandidateBlocks() {
@@ -93,7 +102,7 @@ func PickPOSWinner() {
 			k, ok := setValidators[block.Validator]
 			if ok {
 				for i := 0; i < k; i++ {
-						lotteryPool = append(lotteryPool, block.Validator)
+					lotteryPool = append(lotteryPool, block.Validator)
 				}
 			}
 

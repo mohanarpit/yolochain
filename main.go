@@ -15,13 +15,12 @@ import (
 	"flag"
 )
 
-func run() error {
-	mux := makeMuxRouter()
-	httpAddr := os.Getenv("ADDR")
-	log.Println("Listening on ", httpAddr)
+func runHttpServer(httpHandler http.Handler) error {
+	httpAddr := os.Getenv("HTTP_ADDR")
+	log.Println("Listening on HTTP Port: ", httpAddr)
 	s := &http.Server{
 		Addr:           httpAddr,
-		Handler:        mux,
+		Handler:        httpHandler,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
@@ -33,10 +32,16 @@ func run() error {
 	return nil
 }
 
-func makeMuxRouter() http.Handler {
+func makeStandaloneHttpRouter() http.Handler {
 	muxRouter := mux.NewRouter()
 	muxRouter.HandleFunc("/", handlers.HandleGetBlockchain).Methods("GET")
 	muxRouter.HandleFunc("/", handlers.HandleWriteBlockchain).Methods("POST")
+	return muxRouter
+}
+
+func makePOSHttpRouter() http.Handler {
+	muxRouter := mux.NewRouter()
+	muxRouter.HandleFunc("/", handlers.HandleGetBlockchain).Methods("GET")
 	return muxRouter
 }
 
@@ -48,7 +53,7 @@ func standaloneMain() {
 		models.Blockchain = append(models.Blockchain, genesisBlock)
 	}()
 
-	log.Fatal(run())
+	log.Fatal(runHttpServer(makeStandaloneHttpRouter()))
 }
 
 func networkMain() {
@@ -60,7 +65,8 @@ func networkMain() {
 	genesisBlock := models.Block{0, t.String(), []byte(string(0)), "", "", ""}
 	spew.Dump(genesisBlock)
 	models.Blockchain = append(models.Blockchain, genesisBlock)
-	server, err := net.Listen("tcp", os.Getenv("ADDR"))
+
+	server, err := net.Listen("tcp", os.Getenv("TCP_ADDR"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -82,25 +88,37 @@ func posMain() {
 	models.BlockchainServer = make(chan []models.Block)
 	models.InputMsgChan = make(chan models.Message)
 
+	// Genesis block to bootstrap the blockchain application
 	t := time.Now()
 	genesisBlock := models.Block{0, t.String(), []byte(string(0)), "", "", ""}
 	spew.Dump(genesisBlock)
 	models.Blockchain = append(models.Blockchain, genesisBlock)
 
-	server, err := net.Listen("tcp", os.Getenv("ADDR"))
+	// TCP Server to accept connections from clients
+	tcpAddr := os.Getenv("TCP_ADDR")
+	server, err := net.Listen("tcp", tcpAddr)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer server.Close()
+	log.Println("Listening on TCP Port: ", tcpAddr)
 
+	// Goroutine to handle the candidateBlocks from which the winner block will be chosen
 	go blockchain.HandleCandidateBlocks()
 
+	// Goroutine to pick the winners at regular intervals
 	go func() {
 		for {
 			blockchain.PickPOSWinner()
 		}
 	}()
 
+	// Goroutine to start the HTTP server for REST calls
+	go func() {
+		log.Fatal(runHttpServer(makePOSHttpRouter()))
+	}()
+
+	// Goroutine to handle the TCP connections for clients staking tokens
 	for {
 		conn, err := server.Accept()
 		if err != nil {

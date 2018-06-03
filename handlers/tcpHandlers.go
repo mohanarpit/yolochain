@@ -40,7 +40,7 @@ func HandlePOSConn(conn net.Conn) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		io.WriteString(conn, "Broadcast: " + string(output)+"\n")
+		io.WriteString(conn, "Broadcast: "+string(output)+"\n")
 	}
 }
 
