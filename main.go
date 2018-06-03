@@ -11,6 +11,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/davecgh/go-spew/spew"
 	"net"
+	"github.com/mohanarpit/yolochain/blockchain"
 )
 
 func run() error {
@@ -39,11 +40,6 @@ func makeMuxRouter() http.Handler {
 }
 
 func standaloneMain() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	go func() {
 		t := time.Now()
 		genesisBlock := models.Block{0, t.String(), []byte(string(0)), "", "", ""}
@@ -55,13 +51,9 @@ func standaloneMain() {
 }
 
 func networkMain() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	models.BlockchainServer = make(chan []models.Block)
-	models.InputMsgChan = make(chan string)
+	models.InputMsgChan = make(chan models.Message)
 
 	t := time.Now()
 	genesisBlock := models.Block{0, t.String(), []byte(string(0)), "", "", ""}
@@ -84,7 +76,48 @@ func networkMain() {
 
 }
 
+func posMain() {
+
+	models.BlockchainServer = make(chan []models.Block)
+	models.InputMsgChan = make(chan models.Message)
+
+	t := time.Now()
+	genesisBlock := models.Block{0, t.String(), []byte(string(0)), "", "", ""}
+	spew.Dump(genesisBlock)
+	models.Blockchain = append(models.Blockchain, genesisBlock)
+
+	server, err := net.Listen("tcp", os.Getenv("ADDR"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer server.Close()
+
+	go blockchain.HandleCandidateBlocks()
+
+	go func() {
+		for {
+			blockchain.PickPOSWinner()
+		}
+	}()
+
+
+	for {
+		conn, err := server.Accept()
+		if err != nil {
+			log.Fatal(err)
+		}
+		go handlers.HandlePOSConn(conn)
+	}
+
+}
+
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	//standaloneMain()
-	networkMain()
+	//networkMain()
+	posMain()
 }
