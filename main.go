@@ -9,7 +9,6 @@ import (
 	"github.com/mohanarpit/yolochain/handlers"
 	"github.com/mohanarpit/yolochain/models"
 	"github.com/joho/godotenv"
-	"github.com/davecgh/go-spew/spew"
 	"net"
 	"github.com/mohanarpit/yolochain/blockchain"
 	"flag"
@@ -45,27 +44,21 @@ func makePOSHttpRouter() http.Handler {
 	return muxRouter
 }
 
+// standaloneMain is the simplest blockchain that runs in standalone mode
+// It exposes a HTTP server which can be used to query and write data to the Blockchain
 func standaloneMain() {
-	go func() {
-		t := time.Now()
-		genesisBlock := models.Block{0, t.String(), []byte(string(0)), "", "", ""}
-		spew.Dump(genesisBlock)
-		models.Blockchain = append(models.Blockchain, genesisBlock)
-	}()
-
+	blockchain.BootstrapBlockchain()
 	log.Fatal(runHttpServer(makeStandaloneHttpRouter()))
 }
 
+// networkMain supports the "network" mode in the blockchain. It allows clients to connect to it and create new blocks
+// Currently it doesn't completely satisfy the POW as defined by the Blockchain paper
 func networkMain() {
 
 	models.BlockchainServer = make(chan []models.Block)
 	models.InputMsgChan = make(chan models.Message)
 
-	t := time.Now()
-	genesisBlock := models.Block{0, t.String(), []byte(string(0)), "", "", ""}
-	spew.Dump(genesisBlock)
-	models.Blockchain = append(models.Blockchain, genesisBlock)
-
+	blockchain.BootstrapBlockchain()
 	server, err := net.Listen("tcp", os.Getenv("TCP_ADDR"))
 	if err != nil {
 		log.Fatal(err)
@@ -83,16 +76,15 @@ func networkMain() {
 
 }
 
+// posMain runs the blockchain server in Proof of Stake mode. It allows clients to connect to it, stake a certain number of
+// tokens and then assigns the new block to the winner client node based on the number of tokens that are staked.
 func posMain() {
 
 	models.BlockchainServer = make(chan []models.Block)
 	models.InputMsgChan = make(chan models.Message)
 
 	// Genesis block to bootstrap the blockchain application
-	t := time.Now()
-	genesisBlock := models.Block{0, t.String(), []byte(string(0)), "", "", ""}
-	spew.Dump(genesisBlock)
-	models.Blockchain = append(models.Blockchain, genesisBlock)
+	blockchain.BootstrapBlockchain()
 
 	// TCP Server to accept connections from clients
 	tcpAddr := os.Getenv("TCP_ADDR")
