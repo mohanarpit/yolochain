@@ -17,11 +17,14 @@ func CalculateStringHash(s string) string {
 	return hex.EncodeToString(hashed)
 }
 
+// CalculateHash simply calculates the hash for a block and stores it in that block. Used to check if the data is valid
+// and the block hasn't been tampered with.
 func CalculateHash(block models.Block) string {
 	record := string(block.Index) + block.Timestamp + string(block.Data) + block.PrevHash
 	return CalculateStringHash(record)
 }
 
+// GenerateBlock creates a new block based on the arbitrary data and the address of the client node that proposed it
 func GenerateBlock(oldBlock models.Block, data []byte, address string) (models.Block, error) {
 
 	var newBlock models.Block
@@ -37,6 +40,7 @@ func GenerateBlock(oldBlock models.Block, data []byte, address string) (models.B
 	return newBlock, nil
 }
 
+// IsBlockValid checks if the new block is valid as compared to the last old block
 func IsBlockValid(newBlock models.Block, oldBlock models.Block) bool {
 	if (oldBlock.Index+1 != newBlock.Index) || (oldBlock.Hash != newBlock.PrevHash) || (CalculateHash(newBlock) != newBlock.Hash) {
 		return false
@@ -45,12 +49,15 @@ func IsBlockValid(newBlock models.Block, oldBlock models.Block) bool {
 	return true
 }
 
+// ReplaceChains is used to overwrite the local copy of the blockchain if a longer chain is found in the network.
 func ReplaceChains(newBlocks []models.Block) {
 	if (len(newBlocks)) > len(models.Blockchain) {
 		models.Blockchain = newBlocks
 	}
 }
 
+// BootstrapBlockchain bootstraps a blockchain with the genesis block. It's typically empty values.
+// Returns the genesis block
 func BootstrapBlockchain() models.Block {
 	t := time.Now()
 	genesisBlock := models.Block{0, t.String(), []byte(string(0)), "", "", ""}
@@ -59,6 +66,7 @@ func BootstrapBlockchain() models.Block {
 	return genesisBlock
 }
 
+// HandleCandidateBlocks simply receives the candidate blocks via a Go channel and adds them to an internal temp array
 func HandleCandidateBlocks() {
 	// Add all the candidate blocks into a temp array
 	for {
@@ -72,6 +80,8 @@ func HandleCandidateBlocks() {
 	}
 }
 
+// PickPOSWinner picks the winner node for the new block based on the number of tokens that have been staked by
+// individual clients. It does this every 30 seconds.
 func PickPOSWinner() {
 	time.Sleep(30 * time.Second)
 	log.Println("Going to the pick the winner")
@@ -88,6 +98,7 @@ func PickPOSWinner() {
 			// If the node is already in the lottery pool, skip it
 			for _, node := range lotteryPool {
 				if block.Validator == node {
+					log.Printf("Got the node in lotteryPool as %v. Skipping", node)
 					continue OUTER
 				}
 			}
@@ -105,21 +116,21 @@ func PickPOSWinner() {
 					lotteryPool = append(lotteryPool, block.Validator)
 				}
 			}
+		}
 
-			s := rand.NewSource(time.Now().Unix())
-			r := rand.New(s)
-			lotteryWinner := lotteryPool[r.Intn(len(lotteryPool))]
+		s := rand.NewSource(time.Now().Unix())
+		r := rand.New(s)
+		lotteryWinner := lotteryPool[r.Intn(len(lotteryPool))]
 
-			for _, block := range temp {
-				if block.Validator == lotteryWinner {
-					models.Mutex.Lock()
-					models.Blockchain = append(models.Blockchain, block)
-					models.Mutex.Unlock()
-					for _ = range models.Validators {
-						models.Announcements <- "\nWinning Validator: " + lotteryWinner + "\n"
-					}
-					break
+		for _, block := range temp {
+			if block.Validator == lotteryWinner {
+				models.Mutex.Lock()
+				models.Blockchain = append(models.Blockchain, block)
+				models.Mutex.Unlock()
+				for _ = range models.Validators {
+					models.Announcements <- "\nWinning Validator: " + lotteryWinner + "\n"
 				}
+				break
 			}
 		}
 	}
