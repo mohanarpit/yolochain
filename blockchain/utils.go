@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"log"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/mohanarpit/yolochain/blockchainGrpc"
 )
 
 func CalculateStringHash(s string) string {
@@ -124,11 +125,24 @@ func PickPOSWinner() {
 
 		for _, block := range temp {
 			if block.Validator == lotteryWinner {
-				models.Mutex.Lock()
-				models.Blockchain = append(models.Blockchain, block)
-				models.Mutex.Unlock()
+
+				// Appending to the local blockchain is done by the AnnounceCandidates GRPC handler
 				for _ = range models.Validators {
-					models.Announcements <- "\nWinning Validator: " + lotteryWinner + "\n"
+					// Transform the local block to the grpcChain Block so that we can push it over the wire
+					// TODO: Change this to use the GRPC blockchain only so that we don't have to keep transforming the values
+					grpcBlock := blockchainGrpc.Block{
+						Data: block.Data,
+						Validator: block.Validator,
+						Hash: block.Hash,
+						PrevHash: block.PrevHash,
+						Timestamp: block.Timestamp,
+						Index: block.Index,
+					}
+					req := blockchainGrpc.AnnounceCandidateRequest{
+						Message: "Winning Validator " + lotteryWinner,
+						Block: &grpcBlock,
+					}
+					models.Announcements <- req
 				}
 				break
 			}

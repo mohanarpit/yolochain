@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package blockchainGrpc;
+
+service ControlService {
+    rpc AnnounceCandidates(AnnounceCandidateRequest) returns (AnnounceCandidateReply) {}
+    rpc MulticastPing(PingRequest) returns (PingReply) {}
+}
+
+message Block {
+    int64 index = 1;
+    string timestamp = 2;
+    bytes data = 3;
+    string hash = 4;
+    string prevHash = 5;
+    string validator = 6;
+}
+
+message AnnounceCandidateRequest {
+    string message = 1;
+    Block block = 2;
+}
+
+message AnnounceCandidateReply {
+    bool success = 1;
+    string message = 2;
+}
+
+message PingRequest {
+
+}
+
+message PingReply {
+    string address = 1;
+}

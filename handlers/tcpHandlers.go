@@ -11,27 +11,27 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mohanarpit/yolochain/blockchain"
 	"strconv"
+	"github.com/mohanarpit/yolochain/clients"
 )
 
-func handleAccouncements(conn net.Conn) {
-
+func handleAnnouncements() {
 	for {
 		msg := <-models.Announcements
-		io.WriteString(conn, msg)
+		// Broadcast the announcement for the new block to the entire network via GRPC
+		clients.AnnounceCandidates(msg)
 	}
-
 }
 
 func HandlePOSConn(conn net.Conn) {
 	defer conn.Close()
 
 	// Write all announcements to the all the connections
-	go handleAccouncements(conn)
+	go handleAnnouncements()
 
 	go HandlePOSInputData()
 	InputData(conn)
 
-	// Simulating the receiving broadcast
+	// Broadcasting the entire chain every minute to ensure all the nodes share the same copy
 	for {
 		time.Sleep(time.Minute)
 		models.Mutex.Lock()

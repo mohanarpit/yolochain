@@ -12,9 +12,12 @@ import (
 	"net"
 	"github.com/mohanarpit/yolochain/blockchain"
 	"flag"
+	"google.golang.org/grpc"
+	"github.com/mohanarpit/yolochain/blockchainGrpc"
+	"google.golang.org/grpc/reflection"
 )
 
-func runHttpServer(httpHandler http.Handler) error {
+func runHTTPServer(httpHandler http.Handler) error {
 	httpAddr := os.Getenv("HTTP_ADDR")
 	log.Println("Listening on HTTP Port: ", httpAddr)
 	s := &http.Server{
@@ -31,14 +34,14 @@ func runHttpServer(httpHandler http.Handler) error {
 	return nil
 }
 
-func makeStandaloneHttpRouter() http.Handler {
+func makeStandaloneHTTPRouter() http.Handler {
 	muxRouter := mux.NewRouter()
 	muxRouter.HandleFunc("/", handlers.HandleGetBlockchain).Methods("GET")
 	muxRouter.HandleFunc("/", handlers.HandleWriteBlockchain).Methods("POST")
 	return muxRouter
 }
 
-func makePOSHttpRouter() http.Handler {
+func makePOSHTTPRouter() http.Handler {
 	muxRouter := mux.NewRouter()
 	muxRouter.HandleFunc("/", handlers.HandleGetBlockchain).Methods("GET")
 	return muxRouter
@@ -48,7 +51,7 @@ func makePOSHttpRouter() http.Handler {
 // It exposes a HTTP server which can be used to query and write data to the Blockchain
 func standaloneMain() {
 	blockchain.BootstrapBlockchain()
-	log.Fatal(runHttpServer(makeStandaloneHttpRouter()))
+	log.Fatal(runHTTPServer(makeStandaloneHTTPRouter()))
 }
 
 // networkMain supports the "network" mode in the blockchain. It allows clients to connect to it and create new blocks
@@ -107,16 +110,33 @@ func posMain() {
 
 	// Goroutine to start the HTTP server for REST calls
 	go func() {
-		log.Fatal(runHttpServer(makePOSHttpRouter()))
+		log.Fatal(runHTTPServer(makePOSHTTPRouter()))
 	}()
 
 	// Goroutine to handle the TCP connections for clients staking tokens
-	for {
-		conn, err := server.Accept()
-		if err != nil {
-			log.Fatal(err)
+	go func() {
+		for {
+			conn, err := server.Accept()
+			if err != nil {
+				log.Fatal(err)
+			}
+			go handlers.HandlePOSConn(conn)
 		}
-		go handlers.HandlePOSConn(conn)
+	}()
+
+	// Starting the Control server over GRPC
+	models.Cluster = append(models.Cluster, "localhost:5050")
+	grpcAddr := os.Getenv("GRPC_ADDR")
+	listener, err := net.Listen("tcp", grpcAddr)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	s := grpc.NewServer()
+	blockchainGrpc.RegisterControlServiceServer(s, &handlers.Server{})
+	reflection.Register(s)
+	log.Println("Going to listen on the GRPC port: " + grpcAddr)
+	if err := s.Serve(listener); err != nil {
+		log.Fatalln(err)
 	}
 
 }
@@ -127,7 +147,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	var mode = flag.String("mode", "pos", "The mode in which you want to run the blockchain. Available modes are standalone/network/pos. Default is pos.")
+	var mode = flag.String("mode", "pos", "The mode in which you want to run the blockchain. Available modes are standalone/network/pos/grpc. Default is pos.")
 	flag.Parse()
 	log.Println("Going to run the Yolochain in mode: ", *mode)
 	switch *mode {
